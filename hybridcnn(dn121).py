@@ -1,0 +1,121 @@
+# -*- coding: utf-8 -*-
+"""HybridCNN(DN121).ipynb
+
+
+
+# Import necessary libraries
+import tensorflow as tf
+from tensorflow.keras.utils import image_dataset_from_directory
+from tensorflow.keras.applications import DenseNet121
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Rescaling
+
+import numpy as np
+import os
+import zipfile
+import xgboost as xgb
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Mount Google Drive
+from google.colab import drive
+drive.mount('/content/drive')
+
+# Define the path to your zip file and the extraction location
+zip_path = "/content/drive/MyDrive/leaf_data_training.zip"  # Adjust this path if your file is in a different folder
+extract_path = "/content/leaf_data"
+
+# Unzip the dataset
+with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+    zip_ref.extractall(extract_path)
+
+# Define path to the extracted image folder and set parameters
+dataset_path = "/content/leaf_data/leaf_data_training"
+img_size = (224, 224)
+batch_size = 32
+
+# Load train dataset (80%) and validation dataset (20%)
+train_ds = image_dataset_from_directory(
+    dataset_path,
+    validation_split=0.2,
+    subset="training",
+    seed=42,
+    image_size=img_size,
+    batch_size=batch_size
+)
+
+val_ds = image_dataset_from_directory(
+    dataset_path,
+    validation_split=0.2,
+    subset="validation",
+    seed=42,
+    image_size=img_size,
+    batch_size=batch_size
+)
+
+# --- FIX IS HERE ---
+# Get class names BEFORE mapping/normalization and print them
+class_names = train_ds.class_names
+print("Class names:", class_names)
+
+# Normalize the image data to be between 0 and 1
+normalization_layer = tf.keras.layers.Rescaling(1./255)
+train_ds = train_ds.map(lambda x, y: (normalization_layer(x), y))
+val_ds = val_ds.map(lambda x, y: (normalization_layer(x), y))
+
+# Load the pre-trained DenseNet121 model without the top classification layer
+base_model = DenseNet121(weights='imagenet', include_top=False, pooling='avg', input_shape=(224, 224, 3))
+feature_extractor = Model(inputs=base_model.input, outputs=base_model.output)
+
+# Function to extract features and labels from a dataset
+def extract_features(dataset):
+    features = []
+    labels = []
+    for images, lbls in dataset:
+        batch_features = feature_extractor.predict(images)
+        features.extend(batch_features)
+        labels.extend(lbls.numpy())
+    return np.array(features), np.array(labels)
+
+# Extract features from the training and validation datasets
+print("Extracting features from the training set...")
+X_train, y_train = extract_features(train_ds)
+
+print("\nExtracting features from the validation set...")
+X_val, y_val = extract_features(val_ds)
+
+print("\nShape of training features:", X_train.shape)
+print("Shape of validation features:", X_val.shape)
+
+# Initialize and train the XGBoost model
+print("\nTraining the XGBoost classifier...")
+xgb_model = xgb.XGBClassifier(
+    objective='multi:softmax',
+    num_class=3,  # Number of classes: Healthy, Leaf_Minor_Infestation, Mosaic_Virus
+    eval_metric='mlogloss',
+    use_label_encoder=False
+)
+xgb_model.fit(X_train, y_train)
+print("Training complete.")
+
+# Make predictions on the validation data
+y_pred = xgb_model.predict(X_val)
+
+# Calculate and print the validation accuracy
+accuracy = accuracy_score(y_val, y_pred)
+print(f"Validation Accuracy: {accuracy * 100:.2f}%")
+
+# Print the detailed classification report
+print("\nClassification Report:")
+class_names = ['Healthy', 'Leaf_Minor_Infestation', 'Mosaic_Virus']
+print(classification_report(y_val, y_pred, target_names=class_names))
+
+# Generate and plot the confusion matrix
+cm = confusion_matrix(y_val, y_pred)
+plt.figure(figsize=(7, 6))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=class_names, yticklabels=class_names)
+plt.xlabel("Predicted Label")
+plt.ylabel("True Label")
+plt.title("Confusion Matrix")
+plt.show()
