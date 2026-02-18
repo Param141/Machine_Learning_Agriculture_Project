@@ -3,7 +3,7 @@
 # Machine Learning for Ridge Gourd Classification 🌱
 
 ## Overview
-This project focuses on applying **machine learning and deep learning techniques** to classify ridge gourd images. The dataset was **self-created and preprocessed** to ensure quality and consistency, followed by training with multiple models to benchmark performance.
+This project focuses on applying **machine learning and deep learning techniques** to classify ridge gourd images. The dataset was **self-created and preprocessed** to ensure quality and consistency, followed by training with multiple models to benchmark performance. This Project Resulted in an Conference Paper Presented at MIND 2025 conference.
 
 ## Key Features
 - 📸 **Custom Dataset**: Ridge gourd images collected and curated manually.  
