@@ -13,7 +13,7 @@ This project focuses on applying **machine learning and deep learning techniques
   - Hybrid CNN architectures
   - MobileNet & MobileNetV2
   - Custom CNN variants
-  - SVM + CNN combinations  
+  - SVM + CNN combinations. 
 - 📊 **Performance Evaluation**: Accuracy and loss metrics tracked across models.
 
 ## Repository Structure
